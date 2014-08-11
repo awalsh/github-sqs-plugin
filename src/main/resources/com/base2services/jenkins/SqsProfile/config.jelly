@@ -8,5 +8,11 @@
   <f:entry title="${%Secret Key}" field="awsSecretAccessKey">
     <f:password/>
   </f:entry>
-  <f:validateButton title="${%Test Access}" with="awsAccessKeyId,awsSecretAccessKey,sqsQueue" method="validate"/>
+  <f:entry title="${%Proxy Host}" field="proxyHost">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="${%Proxy Port}" field="proxyPort">
+    <f:textbox />
+  </f:entry>
+  <f:validateButton title="${%Test Access}" with="awsAccessKeyId,awsSecretAccessKey,sqsQueue,proxyHost,proxyPort" method="validate"/>
 </j:jelly>

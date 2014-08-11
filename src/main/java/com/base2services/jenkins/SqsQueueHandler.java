@@ -39,7 +39,8 @@ public class SqsQueueHandler extends PeriodicWork {
             if (profiles.size() != 0) {
                 queue.setExecutors(Executors.newFixedThreadPool(profiles.size()));
                 for (final SqsProfile profile : profiles) {
-                    queue.execute(new SQSQueueReceiver(profile));
+                    logger.fine("Checking for messages from " + profile.sqsQueue);
+		    queue.execute(new SQSQueueReceiver(profile));
                 }
             }
         } else {
@@ -61,7 +62,7 @@ public class SqsQueueHandler extends PeriodicWork {
 
         public void run() {
             LOGGER.fine("looking for build triggers on queue:" + profile.sqsQueue);
-            AmazonSQS sqs = profile.getSQSClient();
+	    AmazonSQS sqs = profile.getSQSClient();
             String queueUrl = profile.getQueueUrl();
             TriggerProcessor processor = profile.getTriggerProcessor();
             ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(queueUrl);

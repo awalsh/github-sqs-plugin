@@ -1,5 +1,6 @@
 package com.base2services.jenkins;
 
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClient;
@@ -15,8 +16,13 @@ import hudson.util.Secret;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
+import java.util.regex.Matcher;
+
 import java.io.IOException;
 import java.util.regex.Pattern;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * SqsProfile to access SQS
@@ -28,17 +34,23 @@ public class SqsProfile extends AbstractDescribableImpl<SqsProfile> implements A
     public final String awsAccessKeyId;
     public final Secret awsSecretAccessKey;
     public final String sqsQueue;
+    public final String proxyHost;
+    public final int proxyPort;
 
     static final String queueUrlRegex = "^https://sqs\\.(.+?)\\.amazonaws\\.com/(.+?)/(.+)$";
+    static final Pattern endpointPattern = Pattern.compile("(sqs\\..+?\\.amazonaws\\.com)");
     private final boolean urlSpecified;
     private AmazonSQS client;
 
 
     @DataBoundConstructor
-    public SqsProfile(String awsAccessKeyId, Secret awsSecretAccessKey, String sqsQueue) {
+    public SqsProfile(String awsAccessKeyId, Secret awsSecretAccessKey, String sqsQueue, String proxyHost, int proxyPort) {
         this.awsAccessKeyId = awsAccessKeyId;
         this.awsSecretAccessKey = awsSecretAccessKey;
         this.sqsQueue = sqsQueue;
+        this.proxyHost = proxyHost;
+        this.proxyPort = proxyPort;
+
         this.urlSpecified = Pattern.matches(queueUrlRegex, sqsQueue);
         this.client = null;
     }
@@ -53,8 +65,26 @@ public class SqsProfile extends AbstractDescribableImpl<SqsProfile> implements A
 
     public AmazonSQS getSQSClient() {
         if(client == null) {
-            client =  new AmazonSQSClient(this);
-        }
+	    ClientConfiguration clientConfiguration = new ClientConfiguration();
+	    
+            if(proxyHost != null && proxyHost.length() > 0) {
+	    	clientConfiguration.setProxyHost(proxyHost);
+	    }
+
+	    if(proxyPort > 0) {
+	    	clientConfiguration.setProxyPort(proxyPort);
+            }
+
+            client = new AmazonSQSClient(this, clientConfiguration);
+		
+	    if(urlSpecified) {
+                Matcher endpointMatcher = endpointPattern.matcher(getSqsQueue());
+                if(endpointMatcher.find()) {
+                    String endpoint = endpointMatcher.group(1);
+                    client.setEndpoint(endpoint);
+                }
+            }
+	}
         return client;
     }
 
@@ -95,10 +125,10 @@ public class SqsProfile extends AbstractDescribableImpl<SqsProfile> implements A
             return ""; // unused
         }
 
-        public FormValidation doValidate(@QueryParameter String awsAccessKeyId, @QueryParameter Secret awsSecretAccessKey, @QueryParameter String sqsQueue) throws IOException {
+        public FormValidation doValidate(@QueryParameter String awsAccessKeyId, @QueryParameter Secret awsSecretAccessKey, @QueryParameter String sqsQueue, @QueryParameter String proxyHost, @QueryParameter int proxyPort) throws IOException {
             boolean valid = false;
             try {
-                SqsProfile profile = new SqsProfile(awsAccessKeyId,awsSecretAccessKey,sqsQueue);
+                SqsProfile profile = new SqsProfile(awsAccessKeyId,awsSecretAccessKey,sqsQueue, proxyHost, proxyPort);
                 String queue = profile.getQueueUrl();
                 if(queue != null) {
                     return FormValidation.ok("Verified SQS Queue " + queue);
